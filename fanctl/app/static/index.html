@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thermal</title>
+<style>
+:root{color-scheme:light dark;--ink:#1d2329;--muted:#5d6b78;--line:#d9dee3;--bg:#f4f6f8;--card:#fff;--head:#4a5866;--accent:#01a982;--warn:#e8a33d;--crit:#d64541;
+ --grid:#eceff2;--rule:#eceff2;--outline:rgba(20,30,40,.55);--lblbg:rgba(255,255,255,.85);--soft:#e6eaee;--hl:#eef8f4;--alertbg:#fdecea;--alertbd:#f2b8b2;--alertfg:#8a1c12;--fanfill:rgba(255,255,255,.55);--btn:#fff}
+@media (prefers-color-scheme:dark){:root{--ink:#dfe6ec;--muted:#93a1ae;--line:#2e3a45;--bg:#11171c;--card:#182129;--head:#0d1318;--accent:#14b88f;
+ --grid:#25303a;--rule:#222c35;--outline:rgba(220,230,240,.55);--lblbg:rgba(16,22,28,.85);--soft:#26313b;--hl:#173a30;--alertbg:#3a1714;--alertbd:#7a2a22;--alertfg:#ffb4aa;--fanfill:rgba(20,28,36,.6);--btn:#1d2731}}
+*{box-sizing:border-box}body{margin:0;font:14px/1.4 "Segoe UI",system-ui,-apple-system,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+header{background:var(--head);color:#fff;padding:10px max(22px, calc((100% - 1800px) / 2 + 22px));display:flex;align-items:center;gap:18px}
+header h1{font-size:18px;font-weight:600;margin:0}header .sub{opacity:.75;font-size:12px}
+.pill{padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;background:var(--accent)}
+.pill.fs{background:var(--crit)}.pill.dry{background:#7a5cc4}
+.tabs{display:flex;gap:4px;margin-left:10px}.tabs a{color:#dfe6ec;text-decoration:none;padding:6px 14px;border-radius:5px;font-size:14px;border:1px solid transparent}
+.tabs a:hover{background:rgba(255,255,255,.08)}.tabs a.on{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.25);color:#fff;font-weight:600}
+body[data-page=dash] [data-page=curves]{display:none}body[data-page=curves] [data-page=dash]{display:none}
+header .right{margin-left:auto;font-size:12px;opacity:.8}
+main{padding:16px 22px;display:grid;gap:16px;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);max-width:1800px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:14px 16px}
+.card h2{font-size:17px;font-weight:600;margin:0 0 10px}
+.zones{display:contents}
+.zone{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;align-items:center}
+.zone .duty{font-size:44px;font-weight:300;line-height:1;grid-row:span 3}
+.zone .duty small{font-size:16px;color:var(--muted)}
+.zone .name{font-weight:600;font-size:15px}.zone .why{color:var(--muted);font-size:13px}
+.fans{display:flex;gap:14px;flex-wrap:wrap;font-size:13px}.fans b{font-weight:600}
+.bar{height:6px;background:var(--soft);border-radius:3px;overflow:hidden;grid-column:1/-1}.bar i{display:block;height:100%;background:linear-gradient(90deg,#55c48a,#f0c24b,#e35d48)}
+.inputs{grid-column:1/-1;font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 14px}
+.inputs span.hot{color:var(--crit);font-weight:600}
+.alert{grid-column:1/-1;background:var(--alertbg);border:1px solid var(--alertbd);color:var(--alertfg);padding:8px 12px;border-radius:6px;display:none}
+.ctrls{display:flex;gap:16px;align-items:center;font-size:13px;margin-bottom:6px;flex-wrap:wrap}
+.ctrls label{display:flex;gap:5px;align-items:center;cursor:pointer}
+canvas{display:block;width:100%}
+#heat{height:640px;cursor:grab;touch-action:none}
+.front{text-align:center;font-weight:600;margin-top:2px}
+.legend{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:6px}.legend i{flex:1;height:8px;border-radius:4px;background:linear-gradient(90deg,#2f9e6e,#8bc34a,#f2d04b,#f39c3d,#e0452f)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{text-align:left;font-weight:600;border-bottom:2px solid var(--line);padding:5px 6px;white-space:nowrap}
+td{border-bottom:1px solid var(--rule);padding:4px 6px;white-space:nowrap}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+td.wrap{white-space:normal;overflow-wrap:anywhere;min-width:90px}
+.card{min-width:0}.tblwrap{overflow-x:auto}
+.st{display:inline-flex;align-items:center;gap:5px}.st i{width:12px;height:12px;border-radius:50%;background:var(--accent);display:inline-block}
+.st.warn i{background:var(--warn)}.st.crit i{background:var(--crit)}.st.na i{background:#c4cbd2}
+tr.hl td{background:var(--hl)}
+a.lnk{color:#0b6fb3;cursor:pointer;font-size:12px}
+.chassis{display:grid;grid-template-columns:44px 1fr 44px;background:#2a2f35;border-radius:6px;padding:8px 0;border:1px solid #11161b}
+.ear{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;color:#aeb7bf;font-size:9px;letter-spacing:.5px}
+.ear .vt{writing-mode:vertical-rl;transform:rotate(180deg);font-weight:600;letter-spacing:2px}
+.ear i{width:8px;height:8px;border-radius:50%;background:#3e8de0;box-shadow:0 0 6px #3e8de0}.ear i.g{background:#3fc46f;box-shadow:0 0 6px #3fc46f}
+.bays{display:grid;gap:5px;padding:0 4px}
+.bay{display:grid;grid-template-columns:52px 1fr 16px;align-items:center;gap:6px;height:44px;border-radius:3px;padding:0 6px 0 0;cursor:pointer;position:relative;
+ background:linear-gradient(#4a5159,#3b4148);border:1px solid #1a1f24;color:#e9eef2;overflow:hidden}
+.bay .tc{height:100%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#10202c;border-right:1px solid rgba(0,0,0,.35)}
+.bay .mid{min-width:0;line-height:1.15}.bay .mid b{font-size:12px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bay .mid div{font-size:10.5px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bay .leds{display:flex;flex-direction:column;gap:6px;align-items:center}
+.bay .leds i{width:7px;height:7px;border-radius:50%;background:#1d2227;display:block}
+.bay .leds i.act{background:#3e8de0;box-shadow:0 0 5px #3e8de0}
+.bay .leds i.flt{background:#ff3b30;box-shadow:0 0 7px #ff3b30}
+.bay .leds i.loc{background:#ff3b30;box-shadow:0 0 7px #ff3b30;animation:ledb .8s steps(2) infinite}
+@keyframes ledb{50%{background:#1d2227;box-shadow:none}}
+.bay.warn{border-color:#e8a33d;box-shadow:inset 0 0 0 1px #e8a33d}
+.bay.fail{border-color:#ff3b30;box-shadow:inset 0 0 0 2px #ff3b30;animation:failp 1.6s ease-in-out infinite}
+@keyframes failp{50%{box-shadow:inset 0 0 0 2px rgba(255,59,48,.25)}}
+.bay.sel{outline:2px solid #2b7de9;outline-offset:1px}
+.bay.standby .tc{background:#6b737b!important;color:#dfe4e8;font-size:11px}
+.bay.empty{background:repeating-linear-gradient(45deg,#30353b,#30353b 6px,#2a2f34 6px,#2a2f34 12px);color:#7d878f;cursor:default}
+.bay.empty.fail{cursor:pointer}
+.bay.cal{background:#3b4148}.bay.cal:hover{outline:2px dashed #2b7de9}
+.bsum{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin:-4px 0 8px;align-items:center}
+.bsum b{color:var(--ink)}.bsum .w{color:#e8a33d}.bsum .f{color:var(--crit)}
+.bsum button,.det button{border:1px solid var(--line);background:var(--btn);color:var(--ink);border-radius:4px;padding:3px 10px;cursor:pointer;font-size:12px}
+.bsum button.on,.det button.on{background:var(--crit);border-color:var(--crit);color:#fff}
+.det{margin-top:10px;border-top:1px solid var(--line);padding-top:10px;display:none}
+.det h3{margin:0 0 6px;font-size:15px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.badge{font-size:11px;padding:2px 8px;border-radius:10px;color:#fff;background:var(--accent)}.badge.warn{background:#e8a33d}.badge.fail{background:var(--crit)}
+.det ul{margin:4px 0 8px 18px;padding:0;font-size:13px}
+.det table td{padding:3px 6px}.det .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center}
+.calmsg{background:#2b7de9;color:#fff;border-radius:4px;padding:6px 10px;font-size:13px;margin-bottom:8px;display:none}
+.nvg{border-radius:6px;padding:10px 12px 12px;margin-bottom:12px;border:1px solid #11161b}
+.nvg.board{background:linear-gradient(#1f5e4c,#174a3c)}.nvg.card{background:linear-gradient(#1d3d33,#142e26);border-left:10px solid #8a8f94}
+.nvg h4{margin:0 0 8px;font-size:12px;color:#cfe3da;font-weight:600;letter-spacing:.3px}
+.sticks{display:grid;gap:8px}
+.stick{display:grid;grid-template-columns:14px 1fr 54px;height:46px;border-radius:3px;overflow:hidden;cursor:pointer;background:#20262b;border:1px solid #0d1114;color:#e9eef2}
+.stick .gold{background:repeating-linear-gradient(#d4a637,#d4a637 3px,#9c7a26 3px,#9c7a26 5px)}
+.stick .body{padding:4px 8px;min-width:0;line-height:1.2;position:relative}
+.stick .body b{font-size:12px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.stick .body div{font-size:10.5px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stick .wear{position:absolute;left:8px;right:8px;bottom:4px;height:3px;background:#3a434b;border-radius:2px}.stick .wear i{display:block;height:100%;background:#3fc46f;border-radius:2px}
+.stick .tc{display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#10202c}
+.stick.warn{border-color:#e8a33d;box-shadow:inset 0 0 0 1px #e8a33d}.stick.fail{border-color:#ff3b30;box-shadow:inset 0 0 0 2px #ff3b30;animation:failp 1.6s ease-in-out infinite}
+.stick.sel{outline:2px solid #2b7de9;outline-offset:1px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.chip{font-size:12px;padding:3px 9px;border-radius:12px;border:1px solid var(--line);display:flex;gap:6px;align-items:center}
+.chip i{width:8px;height:8px;border-radius:50%;background:var(--accent)}.chip.bad i{background:var(--crit)}.chip.warn i{background:#e8a33d}.chip.na i{background:#8a949d}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:13px;margin-bottom:12px}.kv span:nth-child(odd){color:var(--muted)}
+.rail{display:grid;grid-template-columns:110px 70px 1fr;gap:10px;align-items:center;font-size:13px;padding:3px 0}
+.rail .rb{position:relative;height:8px;background:var(--soft);border-radius:4px}
+.rail .rb .ok{position:absolute;top:0;bottom:0;background:rgba(1,169,130,.35);border-radius:4px}
+.rail .rb .pt{position:absolute;top:-3px;width:3px;height:14px;background:var(--ink);border-radius:1px}
+.rail.bad{color:var(--crit)}
+.sel{max-height:520px;overflow:auto}.sel td{font-size:12px;white-space:normal}.sel tr.as td:first-child{border-left:3px solid var(--crit)}.sel tr.de td:first-child{border-left:3px solid var(--accent)}
+.cv-top{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-size:13px}
+.cv-top input[type=number]{width:62px}
+.cv-top button,.cv button,.cvz button{border:1px solid var(--line);background:var(--btn);color:var(--ink);border-radius:4px;padding:3px 10px;cursor:pointer;font-size:12px}
+.cv-top button.pri{background:var(--accent);border-color:var(--accent);color:#fff}.cv-top button:disabled{opacity:.45;cursor:default}
+input,select{background:var(--btn);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:2px 5px;font:inherit;font-size:12px}
+.cvgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.cvz{border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+.cvz h3{margin:0 0 8px;font-size:15px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.cv{border-top:1px dashed var(--line);padding:8px 0}
+.cv .hd{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px}
+.cv .hd .now{margin-left:auto;color:var(--muted)}
+.cv canvas{height:150px;margin-top:6px;cursor:crosshair;touch-action:none}
+.cv .pts{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;font-size:11px;color:var(--muted)}
+.cv .pts input{width:48px;font-size:11px}
+.cvmsg{font-size:13px;margin-top:10px}.cvmsg .e{color:var(--crit)}.cvmsg .w{color:#e8a33d}.cvmsg .p{color:var(--accent)}
+.dirty{color:#e8a33d;font-weight:600}
+.safety{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
+@media (max-width:1100px){.cvgrid{grid-template-columns:1fr}}
+.bayhint{font-size:12px;color:var(--muted);margin:6px 0 0}
+#hist{height:260px}
+.rng button{border:1px solid var(--line);background:var(--btn);color:var(--ink);padding:3px 10px;border-radius:4px;cursor:pointer}.rng button.on{background:var(--head);color:#fff;border-color:var(--head)}
+.ev{font:12px ui-monospace,Consolas,monospace;max-height:170px;overflow:auto;color:var(--muted);white-space:pre-wrap}
+.tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--card);font-size:12px;padding:5px 8px;border-radius:4px;display:none;z-index:9;white-space:nowrap}
+button.save{background:var(--accent);color:#fff;border:0;border-radius:4px;padding:4px 12px;cursor:pointer;display:none}
+@media (max-width:1100px){main{grid-template-columns:1fr}}
+</style></head><body>
+<header><div><h1 id="hname">Temperature Information</h1><div class="sub" id="chassis">Supermicro CSE-846 / H12SSL-i</div></div>
+<nav class="tabs"><a href="#dash" data-t="dash">Dashboard</a><a href="#curves" data-t="curves">Fan curves</a></nav><span class="pill" id="status">OK</span><span class="pill dry" id="dry" style="display:none">DRY RUN</span>
+<div class="right" id="updated">–</div></header>
+<main>
+ <div class="alert" id="alert"></div>
+ <section class="zones" id="zones" data-page="both"></section>
+ <section class="card" data-page="dash">
+  <h2>Temperature Graph</h2>
+  <div class="ctrls">
+   <label><input type="checkbox" id="is3d" checked> 3D</label>
+   <label><input type="checkbox" id="labels"> Labels</label>
+   <label><input type="checkbox" id="edit"> Edit positions</label>
+   <button class="save" id="save">Save positions</button>
+   <span style="color:var(--muted)" id="hint">drag to rotate</span>
+  </div>
+  <canvas id="heat"></canvas>
+  <div class="front">Front of server</div>
+  <div class="legend"><span id="lmin">25°C</span><i></i><span id="lmax">90°C</span></div>
+ </section>
+ <section class="card" data-page="dash">
+  <h2>Sensor Data <a class="lnk" id="hidemiss">( show missing sensors )</a></h2>
+  <div class="tblwrap"><table><thead><tr><th>Sensor</th><th>Location</th><th>X</th><th>Y</th><th>Status</th><th>Reading</th><th title="Caution / Critical">Caution / Crit</th></tr></thead><tbody id="sens"></tbody></table></div>
+ </section>
+ <section class="card" data-page="dash">
+  <h2>Drive Bays <span style="font-weight:400;color:var(--muted);font-size:13px" id="encname"></span></h2>
+  <div class="bsum" id="bsum"></div>
+  <div class="calmsg" id="calmsg"></div>
+  <div class="chassis"><div class="ear"><span class="vt">SUPERMICRO</span><i class="g"></i><i></i></div><div class="bays" id="bays"></div><div class="ear"><span class="vt">CSE-846</span></div></div>
+  <div class="det" id="det"></div>
+  <p class="bayhint">Front view of the CSE-846. LEDs: blue = drive present, red = fault, blinking red = identify. Health = SMART + ZFS. Bays flagged <b>fail</b> get their fault LED lit automatically.</p>
+ </section>
+ <section class="card" data-page="dash">
+  <h2>NVMe SSDs</h2>
+  <div class="bsum" id="nsum"></div>
+  <div id="nvme"></div>
+  <div class="det" id="ndet"></div>
+  <p class="bayhint">Gold edge = M.2 connector. Colour = temperature, green bar = wear (percentage used). Health = controller state + NVMe SMART verdict + ZFS.</p>
+ </section>
+ <section class="card" data-page="dash">
+  <h2>Platform (BMC)</h2>
+  <div class="chips" id="pchips"></div>
+  <div class="kv" id="pinfo"></div>
+  <h2 style="font-size:15px">Power rails</h2>
+  <div id="rails"></div>
+  <p class="bayhint">Green band = between the BMC's critical thresholds; tick = current reading.</p>
+ </section>
+ <section class="card" data-page="dash">
+  <h2>BMC event log (SEL) <span style="font-weight:400;color:var(--muted);font-size:13px" id="selinfo"></span></h2>
+  <div class="sel"><table><thead><tr><th>Time (BMC local)</th><th>Sensor</th><th>Event</th><th>Detail</th></tr></thead><tbody id="selb"></tbody></table></div>
+  <p class="bayhint">Times are the BMC's own clock. Plain <code>ipmitool sel</code> shows them 6 h early, so this view reads them corrected.</p>
+ </section>
+ <section class="card" style="grid-column:1/-1" data-page="curves">
+  <h2 style="display:flex;align-items:center;gap:12px">Fan curves <span id="cvstate" style="font-size:13px;font-weight:400"></span></h2>
+  <div class="cv-top">
+   <label>Hysteresis <input type="number" id="cvh" step="0.5"> °C</label>
+   <label>Ramp-down <input type="number" id="cvr" step="1"> %/min</label>
+   <span style="flex:1"></span>
+   <button id="cvval">Validate &amp; preview</button><button id="cvapply" class="pri">Apply</button><button id="cvdisc">Discard changes</button>
+   <button id="cvexp">Export</button><label><button id="cvimpb">Import…</button><input type="file" id="cvimp" accept=".json,application/json" style="display:none"></label>
+   <select id="cvbk"></select><button id="cvrev">Revert</button>
+  </div>
+  <div class="cvgrid" id="cvzones"></div>
+  <div class="cvmsg" id="cvmsg"></div>
+  <div class="safety" id="cvsafe"></div>
+ </section>
+ <section class="card" data-page="dash" style="grid-column:1/-1">
+  <h2 style="display:flex;align-items:center;gap:12px">History <span class="rng" id="rng"><button data-m="60" class="on">1 h</button> <button data-m="360">6 h</button> <button data-m="1440">24 h</button> <button data-m="2880">48 h</button> <button data-m="10080">7 d</button> <button data-m="43200">30 d</button> <button data-m="525600">1 y</button></span>
+   <label style="font-size:13px;font-weight:400"><input type="checkbox" id="peaks" checked> peaks</label>
+   <span id="hres" style="font-size:12px;font-weight:400;color:var(--muted)"></span></h2>
+  <details id="hpick" style="font-size:12px;margin:-4px 0 6px"><summary style="cursor:pointer;color:var(--muted)">series…</summary><div id="hseries" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px"></div></details>
+  <canvas id="hist"></canvas>
+  <h2 style="margin-top:14px">Controller events</h2>
+  <div class="ev" id="events"></div>
+ </section>
+</main>
+<div class="tip" id="tip"></div>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let S=null, layout=null, histMin=60, showMissing=false, dirty=false;
+let yaw=-0.42, pitch=0.95, drag=null, dragSensor=null, pts=[];
+const TMIN=25, TMAX=90;
+let T={}; function theme(){ const cs=getComputedStyle(document.documentElement), v=n=>cs.getPropertyValue(n).trim(); T={ink:v('--ink'),muted:v('--muted'),grid:v('--grid'),outline:v('--outline'),lblbg:v('--lblbg'),fan:v('--fanfill')}; }
+theme(); matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{theme();drawHeat();drawHist();});
+function col(t,a=1){ if(t==null) return 'rgba(200,205,210,'+a+')';
+  const stops=[[25,[47,158,110]],[40,[139,195,74]],[55,[242,208,75]],[70,[243,156,61]],[85,[224,69,47]]];
+  t=Math.max(stops[0][0],Math.min(stops[4][0],t));
+  for(let i=0;i<4;i++){const [t0,c0]=stops[i],[t1,c1]=stops[i+1]; if(t<=t1){const f=(t-t0)/(t1-t0);return 'rgba('+c0.map((v,k)=>Math.round(v+(c1[k]-v)*f)).join(',')+','+a+')';}}
+}
+function stat(s){ if(s.value==null) return 'na'; if(s.ucr!=null&&s.value>=s.ucr) return 'crit'; if(s.unc!=null&&s.value>=s.unc) return 'warn'; return 'ok'; }
+function placed(){ return S.sensors.filter(s=>s.value!=null && s.x!=null); }
+function field(x,y,P){ let n=0,d=0; for(const s of P){const dx=x-s.x,dy=y-s.y,r2=dx*dx+dy*dy; if(r2<0.02) return s.value; const w=1/Math.pow(r2,1.25); n+=w*s.value; d+=w;} return d?n/d:null; }
+
+// ---------------- heat map
+function drawHeat(){
+  const c=$('heat'), dpr=devicePixelRatio||1, W=c.clientWidth, H=c.clientHeight;
+  c.width=W*dpr; c.height=H*dpr; const g=c.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
+  if(!S) return; const L=layout, GW=L.grid.w, GH=L.grid.h, P=placed(); pts=[];
+  const is3d=$('is3d').checked && !$('edit').checked;
+  $('hint').textContent=$('edit').checked?'drag sensor dots, then Save':(is3d?'drag to rotate':'');
+  if(!is3d){
+    const sc=Math.min((W-20)/GW,(H-20)/GH), ox=(W-GW*sc)/2, oy=10;
+    const X=x=>ox+x*sc, Y=y=>oy+(GH-y)*sc; // front at bottom
+    const res=0.25;
+    for(let y=0;y<GH;y+=res) for(let x=0;x<GW;x+=res){ g.fillStyle=col(field(x+res/2,y+res/2,P)); g.fillRect(X(x),Y(y+res),res*sc+0.6,res*sc+0.6); }
+    for(const r of L.regions){ g.strokeStyle=T.outline; g.lineWidth=1.2; g.setLineDash(r.kind==='board'?[]:[5,3]); g.strokeRect(X(r.x),Y(r.y+r.h),r.w*sc,r.h*sc); g.setLineDash([]);
+      g.fillStyle=T.ink; g.font='11px Segoe UI'; g.fillText(r.name,X(r.x)+4,Y(r.y+r.h)+13); }
+    drawFans(g,(x,y)=>[X(x),Y(y)],sc);
+    for(const s of P){ const [px,py]=[X(s.x),Y(s.y)]; pts.push({s,px,py}); dot(g,px,py,s); if($('labels').checked) lab(g,px,py,s); }
+    c._map={X,Y,sc,ox,oy,GH};
+  } else {
+    const res=0.5, nx=Math.round(GW/res), ny=Math.round(GH/res);
+    const vals=[]; let vmin=1e9,vmax=-1e9;
+    for(let j=0;j<=ny;j++){vals[j]=[];for(let i=0;i<=nx;i++){const v=field(i*res,j*res,P);vals[j][i]=v;vmin=Math.min(vmin,v);vmax=Math.max(vmax,v);}}
+    const cy=Math.cos(yaw),sy=Math.sin(yaw),sp=Math.sin(pitch),cp=Math.cos(pitch);
+    const sc=Math.min(W/(Math.hypot(GW,GH)*1.02), H/(Math.hypot(GW,GH)*sp*1.02+7*cp)), hz=6/Math.max(10,(vmax-TMIN));
+    const rot=(x,y)=>{ const X0=x-GW/2, Y0=y-GH/2; return [X0*cy-Y0*sy, X0*sy+Y0*cy]; };
+    const proj=(x,y,z)=>{ const [rx,ry]=rot(x,y); const Z=(z-TMIN)*hz; return [W/2+rx*sc, H*0.56 - ry*sc*sp - Z*sc*cp]; };
+    const quads=[];
+    for(let j=0;j<ny;j++) for(let i=0;i<nx;i++){
+      const a=proj(i*res,j*res,vals[j][i]),b=proj((i+1)*res,j*res,vals[j][i+1]),c2=proj((i+1)*res,(j+1)*res,vals[j+1][i+1]),d=proj(i*res,(j+1)*res,vals[j+1][i]);
+      const depth=rot((i+0.5)*res,(j+0.5)*res)[1];
+      quads.push({p:[a,b,c2,d],v:(vals[j][i]+vals[j][i+1]+vals[j+1][i]+vals[j+1][i+1])/4,depth});
+    }
+    quads.sort((p,q)=>q.depth-p.depth);
+    for(const q of quads){ g.beginPath(); g.moveTo(q.p[0][0],q.p[0][1]); for(let k=1;k<4;k++) g.lineTo(q.p[k][0],q.p[k][1]); g.closePath();
+      g.fillStyle=col(q.v); g.fill(); g.strokeStyle='rgba(40,20,10,.18)'; g.lineWidth=0.5; g.stroke(); }
+    // floor outline of regions
+    g.strokeStyle=T.outline; g.setLineDash([4,3]);
+    for(const r of L.regions){ const cs=[[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.h],[r.x,r.y+r.h]].map(([x,y])=>proj(x,y,TMIN)); g.beginPath(); cs.forEach((p,k)=>k?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])); g.closePath(); g.stroke(); }
+    g.setLineDash([]);
+    for(const s of P){ const v=field(s.x,s.y,P); const [px,py]=proj(s.x,s.y,v); pts.push({s,px,py}); dot(g,px,py,s,true); if($('labels').checked) lab(g,px,py,s); }
+    fanChips(g,(x,y)=>proj(x,y,field(x,y,P)));
+  }
+  $('lmin').textContent=TMIN+'°C'; $('lmax').textContent=TMAX+'°C';
+}
+function dot(g,x,y,s,ilo){ g.beginPath(); g.arc(x,y,ilo?6:5,0,7); g.fillStyle=ilo?'rgba(120,190,110,.85)':col(s.value); g.fill(); g.lineWidth=1.5; g.strokeStyle=ilo?'#3d7a35':'#fff'; g.stroke(); }
+function lab(g,x,y,s){ g.font='11px Segoe UI'; const t=(s.label||s.name).replace(' Temp','')+' '+Math.round(s.value)+'°'; const w=g.measureText(t).width;
+  g.fillStyle=T.lblbg; g.fillRect(x+7,y-8,w+6,15); g.fillStyle=T.ink; g.fillText(t,x+10,y+3); }
+function drawFans(g,P,sc){ if(!layout.fans) return; const rpm=fanMap();
+  for(const f of layout.fans){ const [x,y]=P(f.x,f.y); const r=(f.r||1)*sc; g.beginPath(); g.arc(x,y,r,0,7); g.fillStyle=T.fan; g.fill(); g.strokeStyle=T.muted; g.lineWidth=1; g.stroke();
+    g.fillStyle=T.ink; g.font='600 10px Segoe UI'; g.textAlign='center'; g.fillText(f.header,x,y-1); g.font='10px Segoe UI'; g.fillText(fanTxt(rpm,f.header),x,y+10); g.textAlign='start'; } }
+
+function fanMap(){ const m={}; for(const z of Object.values(S.zones)) Object.assign(m,z.fans); if(S.gpus&&S.gpus[0]) m.GPU=S.gpus[0].fan_pct; return m; }
+function fanTxt(m,h){ const v=m[h]; return v==null?'–':(h==='GPU'?Math.round(v)+' %':Math.round(v)+' rpm'); }
+// 3D: one readable chip per fan header, lifted above the surface with a leader line
+function fanChips(g,P){ if(!layout.fans) return; const rpm=fanMap();
+  const seen={};
+  for(const f of layout.fans){ const [x,y]=P(f.x,f.y); g.beginPath(); g.arc(x,y,4,0,7); g.fillStyle=T.ink; g.fill();
+    const k=f.header+(seen[f.header]=(seen[f.header]||0)+1); const first=seen[f.header]===1;
+    const t=f.header+'  '+fanTxt(rpm,f.header); g.font='600 12px Segoe UI'; const w=g.measureText(t).width+14, lift=first?34:0;
+    if(!first) continue;
+    const bx=x-w/2, by=y-lift-20;
+    g.strokeStyle=T.ink; g.lineWidth=1; g.beginPath(); g.moveTo(x,y); g.lineTo(x,by+20); g.stroke();
+    g.fillStyle=T.lblbg; g.strokeStyle=f.zone===1?'#01a982':(f.zone===0?'#d64541':'#76b900'); g.lineWidth=1.5; g.beginPath(); g.roundRect(bx,by,w,20,4); g.fill(); g.stroke();
+    g.fillStyle=T.ink; g.fillText(t,bx+7,by+14); }
+}
+
+// interaction
+const hc=$('heat');
+hc.addEventListener('pointerdown',e=>{ const r=hc.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+  if($('edit').checked){ const h=pts.find(p=>Math.hypot(p.px-x,p.py-y)<9); if(h){dragSensor=h.s; hc.setPointerCapture(e.pointerId);} return; }
+  drag={x:e.clientX,y:e.clientY,yaw,pitch}; hc.setPointerCapture(e.pointerId); });
+hc.addEventListener('pointermove',e=>{ const r=hc.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+  if(dragSensor){ const m=hc._map; const gx=(x-m.ox)/m.sc, gy=m.GH-(y-m.oy)/m.sc; const key=dragSensor.name;
+    layout.sensors[key]=Object.assign(layout.sensors[key]||{loc:''},{x:+gx.toFixed(1),y:+gy.toFixed(1)}); dragSensor.x=+gx.toFixed(1); dragSensor.y=+gy.toFixed(1); dirty=true; $('save').style.display='inline-block'; drawHeat(); renderTable(); return; }
+  if(drag){ yaw=drag.yaw+(e.clientX-drag.x)*0.008; pitch=Math.max(0.2,Math.min(1.55,drag.pitch-(e.clientY-drag.y)*0.006)); drawHeat(); return; }
+  const h=pts.find(p=>Math.hypot(p.px-x,p.py-y)<9), tip=$('tip');
+  if(h){ tip.style.display='block'; tip.style.left=(e.clientX+12)+'px'; tip.style.top=(e.clientY+8)+'px'; tip.textContent=(h.s.label||h.s.name)+' · '+h.s.loc+' · '+h.s.value+'°C'; highlight(h.s.name);} else { tip.style.display='none'; highlight(null);} });
+hc.addEventListener('pointerup',()=>{drag=null;dragSensor=null;});
+hc.addEventListener('pointerleave',()=>{$('tip').style.display='none';});
+['is3d','labels','edit'].forEach(id=>$(id).addEventListener('change',drawHeat));
+$('edit').addEventListener('change',()=>{ if($('edit').checked||!dirty) return; if(confirm('Discard the unsaved sensor positions?')){ dirty=false; $('save').style.display='none'; tick(); } else $('edit').checked=true; });
+$('save').onclick=async()=>{ const r=await post('/api/layout',{layout}); if(r.ok){dirty=false;$('save').style.display='none';} };
+$('hidemiss').onclick=()=>{showMissing=!showMissing; $('hidemiss').textContent=showMissing?'( hide missing sensors )':'( show missing sensors )'; renderTable();};
+function highlight(n){ document.querySelectorAll('#sens tr').forEach(tr=>tr.classList.toggle('hl',tr.dataset.n===n)); }
+
+// ---------------- table
+function renderTable(){
+  const rows=S.sensors.filter(s=>showMissing||s.value!=null).sort((a,b)=>(a.src>b.src)-(a.src<b.src)||0);
+  $('sens').innerHTML=rows.map((s,i)=>{ const st=stat(s), lbl={ok:'OK',warn:'Caution',crit:'Critical',na:'Not installed'}[st];
+    const th=(s.unc!=null||s.ucr!=null)?((s.unc??'–')+' / '+(s.ucr??'–')+' °C'):'';
+    return '<tr data-n="'+esc(s.name)+'"><td class="wrap">'+String(i+1).padStart(2,'0')+'-'+esc((s.label||s.name).replace(' Temp',''))+'</td><td class="wrap">'+esc(s.loc)+'</td><td class="num">'+(s.x??'')+'</td><td class="num">'+(s.y??'')+'</td><td><span class="st '+st+'"><i></i>'+lbl+'</span></td><td class="num">'+(s.value==null?'N/A':Math.round(s.value)+'C')+'</td><td>'+(th||'N/A')+'</td></tr>'; }).join('');
+}
+
+// ---------------- zones
+function renderZones(){
+  $('zones').innerHTML=Object.entries(S.zones).map(([z,Z])=>{
+    const inp=Object.entries(Z.inputs).map(([k,v])=>{ const c=Z.curves.find(c=>c.sensor===k); const hot=v!=null&&c&&v>=c.points[0][0]; return '<span class="'+(hot?'hot':'')+'">'+esc(k.replace(' Temp',''))+': '+(v==null?'–':Math.round(v)+'°')+' (ramps >'+c.points[0][0]+'°)</span>'; }).join('');
+    return '<div class="card zone"><div class="duty">'+(Z.duty??'–')+'<small>%</small></div><div class="name">Zone '+esc(z)+' · '+esc(Z.name)+'</div><div class="why">'+(Z.reason==='floor'?'at floor ('+Z.floor+'%)':esc(Z.reason)+' · floor '+Z.floor+'%')+'</div>'+
+      '<div class="fans">'+Object.entries(Z.fans).map(([f,r])=>'<span>'+esc(f)+' <b>'+esc(r??'–')+'</b> rpm</span>').join('')+'</div><div class="bar"><i style="width:'+(Z.duty||0)+'%"></i></div><div class="inputs">'+inp+'</div></div>'; }).join('');
+}
+
+// ---------------- bays
+let selSlot=null, cal=null;
+const fmt=v=>v==null?'–':v;
+function renderBays(){
+  const B=layout.bays, by={}; S.drives.forEach(d=>by[d.slot]=d);
+  $('bays').style.gridTemplateColumns='repeat('+B.cols+',minmax(0,1fr))';
+  $('encname').textContent=S.enclosure?'· SES '+S.enclosure:'';
+  const n={ok:0,warn:0,fail:0,empty:0}; S.drives.forEach(d=>n[d.health]=(n[d.health]||0)+1);
+  const za=S.zfs_age; const zs=za==null?'<span class="w">ZFS status unavailable</span>':(za>300?'<span class="w">ZFS status stale ('+Math.round(za/60)+' min)</span>':'ZFS ok, '+Math.round(za)+' s ago');
+  $('bsum').innerHTML='<span><b>'+(S.drives.length-n.empty)+'</b> drives</span><span><b>'+n.ok+'</b> healthy</span>'+(n.warn?'<span class="w"><b>'+n.warn+'</b> warning</span>':'')+(n.fail?'<span class="f"><b>'+n.fail+'</b> failed</span>':'')+'<span>'+zs+'</span><span>auto fault LED '+(S.auto_fault_led?'on':'off')+'</span><span style="margin-left:auto"><button id="calbtn">'+(cal?'Cancel calibration':'Calibrate bay order')+'</button></span>';
+  $('calbtn').onclick=()=>cal?endCal():startCal();
+  let h='';
+  for(let r=0;r<B.rows;r++) for(let c=0;c<B.cols;c++){
+    if(cal){ h+='<div class="bay cal" data-r="'+r+'" data-c="'+c+'"><div class="tc" style="background:#59616a"></div><div class="mid"><b>'+(cal.pos.find(p=>p.r===r&&p.c===c)?'bay '+cal.pos.findIndex(p=>p.r===r&&p.c===c):'?')+'</b></div><div class="leds"><i></i><i></i></div></div>'; continue; }
+    const slot=B.order[r][c], d=by[slot];
+    if(!d||!d.dev){ const f=d&&d.health==='fail';
+      h+='<div class="bay empty'+(f?' fail':'')+(selSlot===slot?' sel':'')+'" data-slot="'+slot+'"><div class="tc" style="background:transparent;color:#7d878f;font-size:11px">'+slot+'</div><div class="mid"><b>'+(f?'MISSING':'empty')+'</b><div>'+(f?esc(d.serial):'Bay '+slot)+'</div></div><div class="leds"><i></i><i class="'+(d&&d.locate?'loc':(d&&d.fault?'flt':''))+'"></i></div></div>'; continue; }
+    const tt=d.temp!=null?Math.round(d.temp)+'°':(d.status==='standby'?'zzz':'–');
+    h+='<div class="bay '+(d.health!=='ok'?d.health+' ':'')+(d.status==='standby'?'standby ':'')+(selSlot===slot?'sel':'')+'" data-slot="'+slot+'" title="'+esc((d.reasons||[]).join('; '))+'"><div class="tc" style="background:'+(d.temp!=null?col(d.temp):'')+'">'+tt+'</div><div class="mid"><b>'+slot+' · '+esc(d.dev)+(d.zfs?' · '+esc(d.zfs.vdev):'')+'</b><div>'+esc(d.serial)+' · '+((d.smart||{}).hours!=null?Math.round(d.smart.hours/8766*10)/10+' y':'')+'</div></div><div class="leds"><i class="act"></i><i class="'+(d.locate?'loc':(d.fault?'flt':''))+'"></i></div></div>';
+  }
+  $('bays').innerHTML=h;
+  if(cal) document.querySelectorAll('.bay.cal').forEach(el=>el.onclick=()=>calClick(+el.dataset.r,+el.dataset.c));
+  else document.querySelectorAll('.bay[data-slot]').forEach(el=>el.onclick=()=>{ selSlot=(selSlot===+el.dataset.slot?null:+el.dataset.slot); renderBays(); });
+  renderDet(by);
+}
+function renderDet(by){
+  const el=$('det'); const d=selSlot==null?null:by[selSlot]; if(!d||cal){ el.style.display='none'; return; } el.style.display='block';
+  const sm=d.smart||{}, z=d.zfs;
+  const rows=[['Model',sm.model],['Serial',d.serial||sm.serial],['Firmware',sm.firmware],['Capacity',sm.capacity_tb!=null?sm.capacity_tb+' TB':null],['Interface',sm.proto],['Power-on',sm.hours!=null?sm.hours.toLocaleString()+' h ('+(sm.hours/8766).toFixed(1)+' y)':null],['Temperature',d.temp!=null?d.temp+' °C':(d.status==='standby'?'standby (not woken)':null)],['SMART overall',sm.passed==null?null:(sm.passed?'PASSED':'FAILED')],['Attributes failing now',(sm.attr_failing_now||[]).join(', ')||null],['Attributes failed in past',(sm.attr_failed_past||[]).join(', ')||null],
+    ['Reallocated',sm.realloc],['Pending',sm.pending],['Offline uncorrectable',sm.offline_unc],['Reported uncorrectable',sm.reported_unc],['Command timeouts',sm.cmd_timeout],['UDMA CRC',sm.crc],['ATA error log',sm.errlog],
+    ['Grown defects',sm.grown_defects],['Uncorrected read/write/verify',sm.read_unc!=null?sm.read_unc+' / '+sm.write_unc+' / '+sm.verify_unc:null],['Start/stop cycles',sm.cycles],
+    ['ZFS',z?(z.pool+' / '+z.vdev+' · '+z.state+' · errors r/w/ck '+z.read+'/'+z.write+'/'+z.cksum):'not a pool member']].filter(r=>r[1]!=null&&r[1]!=='');
+  const man=d.fault_mode;
+  el.innerHTML='<h3>Bay '+d.slot+(d.dev?' · /dev/'+esc(d.dev):'')+' <span class="badge '+esc(d.health)+'">'+esc(d.health.toUpperCase())+'</span></h3>'+
+    (d.reasons&&d.reasons.length?'<ul>'+d.reasons.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'')+
+    '<table>'+rows.map(r=>'<tr><td style="color:var(--muted)">'+r[0]+'</td><td>'+esc(r[1])+'</td></tr>').join('')+'</table>'+
+    '<div class="btns"><button id="bloc" class="'+(d.locate?'on':'')+'">'+(d.locate?'Stop identify':'Identify (blink)')+'</button>'+
+    '<span style="color:var(--muted);font-size:12px">Fault LED ('+(d.fault?'lit':'off')+'):</span><button data-m="on">On</button><button data-m="off">Off</button><button data-m="auto">Auto</button></div>';
+  $('bloc').onclick=async()=>{ await post('/api/locate',{slot:d.slot,on:!d.locate}); d.locate=!d.locate; renderBays(); };
+  el.querySelectorAll('button[data-m]').forEach(b=>b.onclick=async()=>{ await post('/api/fault',{slot:d.slot,mode:b.dataset.m}); setTimeout(tick,300); });
+}
+const rawPost=(u,b)=>fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
+const noTok=()=>new Response(JSON.stringify({ok:false,errors:['edit token required']}),{status:403,headers:{'Content-Type':'application/json'}});
+async function post(u,b){ const need=!/\/api\/config\/validate$/.test(u);
+  if(need&&!b.token){ const t=localStorage.getItem('fanctl_token')||await token(); if(!t) return noTok(); b=Object.assign({},b,{token:t}); }
+  let r=await rawPost(u,b); if(need&&r.status===403){ const t=await token(true); if(!t) return r; r=await rawPost(u,Object.assign({},b,{token:t})); } return r; }
+// calibration: light bay 0, user clicks it; light bay 1, user clicks it -> derive the full order
+async function startCal(){ cal={pos:[]}; selSlot=null; await post('/api/locate',{slot:0,on:true}); calMsg(); renderBays(); }
+function calMsg(){ $('calmsg').style.display=cal?'block':'none'; if(cal) $('calmsg').textContent='Calibration: bay '+cal.pos.length+' is blinking red on the server. Click its position below.'; }
+async function endCal(){ for(const s of [0,1]) await post('/api/locate',{slot:s,on:false}); cal=null; calMsg(); renderBays(); }
+async function calClick(r,c){
+  const B=layout.bays; cal.pos.push({r,c});
+  if(cal.pos.length===1){ await post('/api/locate',{slot:0,on:false}); await post('/api/locate',{slot:1,on:true}); calMsg(); renderBays(); return; }
+  const [p0,p1]=cal.pos, R=B.rows, C=B.cols; const corner=(p0.r===0||p0.r===R-1)&&(p0.c===0||p0.c===C-1);
+  const adj=Math.abs(p0.r-p1.r)+Math.abs(p0.c-p1.c)===1;
+  if(!corner||!adj){ alert('Bay 0 should be a corner and bay 1 next to it. Try again.'); await endCal(); return; }
+  const ord=Array.from({length:R},()=>Array(C).fill(null));
+  for(let n=0;n<R*C;n++){ let rr,cc;
+    if(p1.r===p0.r){ const dc=p1.c-p0.c, dr=p0.r===0?1:-1; rr=p0.r+dr*Math.floor(n/C); cc=p0.c+dc*(n%C); }
+    else { const dr=p1.r-p0.r, dc=p0.c===0?1:-1; rr=p0.r+dr*(n%R); cc=p0.c+dc*Math.floor(n/R); }
+    ord[rr][cc]=n; }
+  layout.bays.order=ord; await post('/api/layout',{layout}); await endCal(); }
+
+// ---------------- nvme
+let selNv=null;
+function renderNvme(){
+  const N=S.nvme||[], by={}; N.forEach(n=>by[n.address]=n);
+  const groups=(layout.nvme_groups||[]);
+  const placed=new Set(groups.flatMap(g=>g.addresses));
+  const extra=N.filter(n=>!placed.has(n.address)).map(n=>n.address);
+  const all=extra.length?[...groups,{name:'Other NVMe',kind:'board',addresses:extra}]:groups;
+  const c={ok:0,warn:0,fail:0}; N.forEach(n=>c[n.health]++);
+  $('nsum').innerHTML='<span><b>'+N.length+'</b> NVMe</span><span><b>'+c.ok+'</b> healthy</span>'+(c.warn?'<span class="w"><b>'+c.warn+'</b> warning</span>':'')+(c.fail?'<span class="f"><b>'+c.fail+'</b> failed</span>':'');
+  $('nvme').innerHTML=all.map(g=>'<div class="nvg '+esc(g.kind)+'"><h4>'+esc(g.name)+'</h4><div class="sticks" style="grid-template-columns:repeat('+(g.kind==='card'?2:1)+',minmax(0,1fr))">'+g.addresses.map(a=>{ const n=by[a];
+      if(!n) return '<div class="stick fail" title="not detected"><div class="gold"></div><div class="body"><b>'+esc(a)+' · MISSING</b><div>not detected on the PCIe bus</div></div><div class="tc" style="background:#5a2a2a;color:#fff">!</div></div>';
+      const sm=n.smart||{}, tc=n.temp!=null?col(n.temp):'#59616a';
+      return '<div class="stick '+(n.health!=='ok'?n.health:'')+(selNv===a?' sel':'')+'" data-a="'+esc(a)+'" title="'+esc((n.reasons||[]).join('; '))+'"><div class="gold"></div><div class="body"><b>'+esc(n.ctrl)+' · '+(sm.capacity_gb?(sm.capacity_gb>=1000?(sm.capacity_gb/1000).toFixed(1)+' TB':sm.capacity_gb+' GB'):'')+(n.zfs?' · '+esc(n.zfs.pool):'')+'</b><div>'+esc(a.replace('0000:',''))+' · '+esc(n.serial)+' · '+(sm.used_pct!=null?sm.used_pct+'% used':'')+'</div><div class="wear"><i style="width:'+Math.min(100,sm.used_pct||0)+'%"></i></div></div><div class="tc" style="background:'+tc+'">'+(n.temp!=null?Math.round(n.temp)+'°':'–')+'</div></div>'; }).join('')+'</div></div>').join('');
+  document.querySelectorAll('.stick[data-a]').forEach(el=>el.onclick=()=>{ selNv=(selNv===el.dataset.a?null:el.dataset.a); renderNvme(); });
+  const el=$('ndet'), n=selNv&&by[selNv]; if(!n){ el.style.display='none'; return; } el.style.display='block';
+  const sm=n.smart||{}, z=n.zfs;
+  const rows=[['Model',n.model],['Serial',n.serial],['Firmware',n.firmware],['PCIe',n.address],['Controller',n.ctrl+' ('+n.state+')'],['Namespace','/dev/'+n.dev],['Capacity',sm.capacity_gb?sm.capacity_gb+' GB':null],
+    ['Temperature',n.temp!=null?n.temp+' °C'+(sm.temp_sensors?' (sensors '+sm.temp_sensors.join(' / ')+')':''):null],['SMART overall',sm.passed==null?null:(sm.passed?'PASSED':'FAILED')],['Critical warning',sm.critical_warning!=null?'0x'+sm.critical_warning.toString(16).padStart(2,'0'):null],
+    ['Wear (percentage used)',sm.used_pct!=null?sm.used_pct+' %':null],['Available spare',sm.spare!=null?sm.spare+' % (threshold '+sm.spare_thresh+' %)':null],['Data written',sm.tb_written!=null?sm.tb_written+' TB':null],
+    ['Power-on',sm.hours!=null?sm.hours.toLocaleString()+' h ('+(sm.hours/8766).toFixed(1)+' y)':null],['Unsafe shutdowns',sm.unsafe_shutdowns],['Media errors',sm.media_errors],['Error log entries',sm.err_log],
+    ['ZFS',z?(z.pool+' / '+z.vdev+' · '+z.state+' · errors r/w/ck '+z.read+'/'+z.write+'/'+z.cksum):'not a pool member']].filter(r=>r[1]!=null&&r[1]!=='');
+  el.innerHTML='<h3>'+esc(n.ctrl)+' · '+esc(n.address)+' <span class="badge '+esc(n.health)+'">'+esc(n.health.toUpperCase())+'</span></h3>'+(n.reasons&&n.reasons.length?'<ul>'+n.reasons.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'')+
+    '<table>'+rows.map(r=>'<tr><td style="color:var(--muted)">'+r[0]+'</td><td>'+esc(r[1])+'</td></tr>').join('')+'</table>';
+}
+
+// ---------------- platform
+function renderPlatform(){
+  const P=S.platform||{}, ch=P.chassis||{}, b=P.bmc||{}, D=S.discrete||{};
+  const chip=(label,state,cls)=>'<span class="chip '+(cls||'')+'"><i></i>'+esc(label)+(state?': '+esc(state):'')+'</span>';
+  const tf=(k,good)=>{ const v=ch[k]; if(v==null) return null; const ok=(v===good); return chip(k.replace('/Fan','').replace(' Fault','').replace('Power Overload','Overload'),ok?'OK':'FAULT ('+v+')',ok?'':'bad'); };
+  const dbyte=k=>{ const s=(D[k]||{}).status; if(!s||!/^0x/.test(s)) return null; return (parseInt(s,16)>>8)&0xff; };
+  const vb=dbyte('VBAT'), ci=dbyte('Chassis Intru');
+  const chips=[ch['System Power']?chip('System power',ch['System Power'],ch['System Power']==='on'?'':'bad'):null,
+    tf('Main Power Fault','false'),tf('Power Overload','false'),tf('Power Control Fault','false'),tf('Cooling/Fan Fault','false'),tf('Drive Fault','false'),
+    ch['Chassis Intrusion']?chip('Intrusion',ch['Chassis Intrusion'],ch['Chassis Intrusion']==='inactive'?'':'bad'):null,
+    vb!=null?chip('CMOS battery',(vb&2)?'FAILED':((vb&1)?'LOW':'OK'),(vb&3)?'bad':''):null,
+    b.Selftest?chip('BMC self-test',b.Selftest,b.Selftest==='passed'?'':'bad'):null,
+    chip('Fan mode','Full (fanctl)')].filter(Boolean);
+  $('pchips').innerHTML=chips.join('');
+  const kv=[['BMC firmware',b['Firmware Revision']],['IPMI',b['IPMI Version']],['Board',(b['Board Mfg']||'')+' H12SSL-i'],['Board serial',b['Board Serial']],['Board mfg date',b['Board Mfg Date']],
+    ['BMC address',b['BMC IP']?b['BMC IP']+' ('+(b['BMC IP source']||'')+') · '+(b['BMC MAC']||''):null],['Power restore',ch['Power Restore Policy']],['Power-on hours (since BMC reset)',ch.POH],['DCMI power',b['DCMI power']]].filter(r=>r[1]);
+  $('pinfo').innerHTML=kv.map(r=>'<span>'+r[0]+'</span><span>'+esc(r[1])+'</span>').join('');
+  $('rails').innerHTML=(S.rails||[]).map(r=>{ const lo=r.lcr??r.lnc, hi=r.ucr??r.unc; if(lo==null||hi==null||r.value==null) return '';
+    const pad=(hi-lo)*0.15, a=lo-pad, z=hi+pad, pos=v=>((v-a)/(z-a)*100).toFixed(1)+'%'; const bad=r.status&&r.status!=='ok';
+    return '<div class="rail'+(bad?' bad':'')+'"><span>'+esc(r.name)+'</span><span style="text-align:right;font-variant-numeric:tabular-nums">'+r.value.toFixed(3)+' V</span><div class="rb" title="'+lo+' – '+hi+' V"><div class="ok" style="left:'+pos(lo)+';right:calc(100% - '+pos(hi)+')"></div><div class="pt" style="left:'+pos(r.value)+'"></div></div></div>'; }).join('');
+  const si=P.sel_info||{}; $('selinfo').textContent=si.entries!=null?'· '+si.entries+' entries, '+(si.used||'?')+' full':'';
+  $('selb').innerHTML=(P.sel||[]).slice().reverse().slice(0,200).map(e=>'<tr class="'+(e.dir==='Asserted'?'as':(e.dir==='Deasserted'?'de':''))+'"><td>'+(e.t?new Date(e.t*1000).toLocaleString():'')+'</td><td>'+esc(e.sensor)+'</td><td>'+esc(e.event)+(e.dir?' · '+esc(e.dir):'')+'</td><td>'+esc(e.detail)+'</td></tr>').join('');
+}
+
+// ---------------- fan curve editor
+let CV=null, draft=null, cvDirty=false, cvDrag=null;
+const clone=o=>JSON.parse(JSON.stringify(o));
+async function loadCurves(force){ if(cvDirty&&!force) return; CV=await (await fetch('/api/config')).json(); if(!cvDirty||force){ draft=clone(CV.config); cvDirty=false; } renderCurves(); }
+function setDirty(v){ cvDirty=v; $('cvstate').innerHTML=v?'<span class="dirty">● unsaved changes, not applied</span>':'<span style="color:var(--muted)">matches the running config</span>'; }
+function renderCurves(){
+  if(!CV||!draft) return; setDirty(cvDirty);
+  $('cvh').value=draft.hysteresis_c; $('cvr').value=draft.ramp_down_pct_per_min;
+  $('cvbk').innerHTML='<option value="">backups ('+CV.backups.length+')</option>'+CV.backups.map(b=>'<option>'+esc(b)+'</option>').join('');
+  const SF=CV.safety;
+  $('cvzones').innerHTML=Object.entries(draft.zones).map(([z,Z])=>'<div class="cvz" data-z="'+esc(z)+'"><h3>Zone '+esc(z)+' · '+esc(Z.name)+' <label style="font-size:12px;font-weight:400">floor <input type="number" class="fl" value="'+Z.floor+'" min="'+SF.min_floor+'" max="100"> %</label><span style="font-size:12px;font-weight:400;color:var(--muted)">now '+((CV.demand[z]||{}).duty??'–')+' % ('+esc((CV.demand[z]||{}).why)+')</span></h3>'+
+    Z.curves.map((c,i)=>{ const v=CV.values[c.sensor], req=(SF.required[z]||[]).includes(c.sensor);
+      return '<div class="cv" data-i="'+i+'"><div class="hd"><select class="sn">'+CV.inputs.map(s=>'<option'+(s===c.sensor?' selected':'')+'>'+esc(s)+'</option>').join('')+'</select>'+
+      (req?'<span class="chip" title="required by safety.json"><i></i>required</span>':'<label><input type="checkbox" class="op"'+(c.optional?' checked':'')+'> optional</label><button class="rm">remove</button>')+
+      '<span class="now">'+(v==null?'no reading':Math.round(v*10)/10+' °C → '+Math.round(interp(c.points,v))+' %')+(SF.full_by[c.sensor]!=null?' · 100 % by '+SF.full_by[c.sensor]+' °C':'')+'</span></div>'+
+      '<canvas></canvas><div class="pts">'+c.points.map((p,j)=>'<span><input type="number" class="pt" data-j="'+j+'" data-k="0" value="'+p[0]+'" step="0.5">°<input type="number" class="pt" data-j="'+j+'" data-k="1" value="'+p[1]+'">%</span>').join('')+' <span>drag points · double-click to add · right-click to delete</span></div></div>'; }).join('')+
+    '<div style="margin-top:6px"><select class="addsel"><option value="">+ add curve…</option>'+CV.inputs.filter(s=>!Z.curves.some(c=>c.sensor===s)).map(s=>'<option>'+esc(s)+'</option>').join('')+'</select></div></div>').join('');
+  document.querySelectorAll('.cvz').forEach(zel=>{ const z=zel.dataset.z, Z=draft.zones[z];
+    zel.querySelector('.fl').onchange=e=>{ Z.floor=+e.target.value; setDirty(true); drawCurves(); };
+    zel.querySelector('.addsel').onchange=e=>{ if(!e.target.value) return; const cap=SF.full_by[e.target.value]??90; Z.curves.push({sensor:e.target.value,points:[[cap-15,Z.floor],[cap-5,100]],optional:true}); setDirty(true); renderCurves(); };
+    zel.querySelectorAll('.cv').forEach(cel=>{ const c=Z.curves[+cel.dataset.i];
+      cel.querySelector('.sn').onchange=e=>{ c.sensor=e.target.value; setDirty(true); renderCurves(); };
+      const op=cel.querySelector('.op'); if(op) op.onchange=e=>{ if(e.target.checked) c.optional=true; else delete c.optional; setDirty(true); };
+      const rm=cel.querySelector('.rm'); if(rm) rm.onclick=()=>{ Z.curves.splice(+cel.dataset.i,1); setDirty(true); renderCurves(); };
+      cel.querySelectorAll('input.pt').forEach(inp=>inp.onchange=()=>{ c.points[+inp.dataset.j][+inp.dataset.k]=+inp.value; setDirty(true); renderCurves(); });
+      bindCurveCanvas(cel.querySelector('canvas'),z,c); }); });
+  $('cvsafe').innerHTML='<b>Safety (read-only, safety.json on the box):</b> floors ≥ '+SF.min_floor+' %; duty never decreases with temperature; last point must be 100 %; required inputs '+Object.entries(SF.required).map(([z,a])=>'zone '+z+': '+a.join(', ')).join(' · ')+'; 100 % caps '+Object.entries(SF.full_by).map(([k,v])=>k.replace(' Temp','')+' '+v+'°').join(', ')+'. <b>Emergency override (all zones 100 %, independent of curves):</b> '+Object.entries(SF.emergency).map(([k,v])=>k.replace(' Temp','')+' ≥ '+v+'°').join(', ')+(SF.emergency_on_bmc_critical?', or any BMC temperature in critical state':'')+'; releases '+SF.emergency_release_c+' °C lower. Hysteresis '+SF.hysteresis_c.join('–')+' °C, ramp-down '+SF.ramp_down_pct_per_min.join('–')+' %/min.';
+  drawCurves();
+}
+function interp(P,t){ if(t<=P[0][0]) return P[0][1]; for(let i=1;i<P.length;i++){ if(t<=P[i][0]){ const [a,b]=[P[i-1],P[i]]; return a[1]+(b[1]-a[1])*(t-a[0])/(b[0]-a[0]); } } return P[P.length-1][1]; }
+const TX=[20,100];
+function cvGeom(cv){ const W=cv.clientWidth,H=cv.clientHeight,l=30,r=W-8,t=6,b=H-18; return {W,H,X:v=>l+(v-TX[0])/(TX[1]-TX[0])*(r-l),Y:v=>b-v/100*(b-t),iX:x=>TX[0]+(x-l)/(r-l)*(TX[1]-TX[0]),iY:y=>(b-y)/(b-t)*100,l,r,t,b}; }
+function drawCurves(){ document.querySelectorAll('.cv canvas').forEach(cv=>cv._draw&&cv._draw()); }
+function bindCurveCanvas(cv,z,c){
+  cv._draw=()=>{ const dpr=devicePixelRatio||1, G=cvGeom(cv); cv.width=G.W*dpr; cv.height=G.H*dpr; const g=cv.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,G.W,G.H);
+    const Z=draft.zones[z], SF=CV.safety, cap=SF.full_by[c.sensor], v=CV.values[c.sensor];
+    g.fillStyle='rgba(128,140,150,.15)'; g.fillRect(G.l,G.Y(Z.floor),G.r-G.l,G.b-G.Y(Z.floor));
+    g.strokeStyle=T.grid; g.fillStyle=T.muted; g.font='10px Segoe UI'; g.lineWidth=1;
+    for(let x=20;x<=100;x+=10){ g.beginPath(); g.moveTo(G.X(x),G.t); g.lineTo(G.X(x),G.b); g.stroke(); g.fillText(x+'°',G.X(x)-8,G.H-4); }
+    for(let y=0;y<=100;y+=25){ g.beginPath(); g.moveTo(G.l,G.Y(y)); g.lineTo(G.r,G.Y(y)); g.stroke(); g.fillText(y+'%',2,G.Y(y)+3); }
+    if(cap!=null){ g.fillStyle='rgba(214,69,65,.10)'; g.fillRect(G.X(cap),G.t,G.r-G.X(cap),G.b-G.t); g.strokeStyle='#d64541'; g.setLineDash([4,3]); g.beginPath(); g.moveTo(G.X(cap),G.t); g.lineTo(G.X(cap),G.b); g.stroke(); g.setLineDash([]); }
+    const em=SF.emergency[c.sensor]; if(em!=null){ g.strokeStyle='#ff3b30'; g.lineWidth=2; g.beginPath(); g.moveTo(G.X(em),G.t); g.lineTo(G.X(em),G.b); g.stroke(); g.fillStyle='#ff3b30'; g.fillText('EMERG',G.X(em)+2,G.t+9); }
+    g.strokeStyle=T.ink; g.lineWidth=2; g.beginPath(); g.moveTo(G.X(TX[0]),G.Y(Math.max(Z.floor,c.points[0][1])));
+    c.points.forEach(p=>g.lineTo(G.X(p[0]),G.Y(Math.max(Z.floor,p[1])))); g.lineTo(G.X(TX[1]),G.Y(100)); g.stroke();
+    c.points.forEach(p=>{ g.beginPath(); g.arc(G.X(p[0]),G.Y(p[1]),5,0,7); g.fillStyle=z==='1'?'#01a982':'#d64541'; g.fill(); g.strokeStyle='#fff'; g.lineWidth=1.5; g.stroke(); });
+    if(v!=null){ const d=Math.max(Z.floor,interp(c.points,v)); g.strokeStyle='#2b7de9'; g.lineWidth=1; g.beginPath(); g.moveTo(G.X(v),G.t); g.lineTo(G.X(v),G.b); g.stroke(); g.beginPath(); g.arc(G.X(v),G.Y(d),4,0,7); g.fillStyle='#2b7de9'; g.fill(); g.fillStyle=T.ink; g.fillText(Math.round(v)+'° → '+Math.round(d)+'%',Math.min(G.X(v)+5,G.r-70),G.t+20); }
+  };
+  const hit=(e)=>{ const r=cv.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top, G=cvGeom(cv); return {x,y,G,i:c.points.findIndex(p=>Math.hypot(G.X(p[0])-x,G.Y(p[1])-y)<9)}; };
+  cv.onpointerdown=e=>{ const h=hit(e); if(h.i>=0&&e.button===0){ cvDrag={c,i:h.i}; cv.setPointerCapture(e.pointerId);} };
+  cv.onpointermove=e=>{ if(!cvDrag||cvDrag.c!==c) return; const h=hit(e), P=c.points, i=cvDrag.i;
+    let t=Math.round(h.G.iX(h.x)*2)/2, d=Math.round(h.G.iY(h.y));
+    const tmin=i>0?P[i-1][0]+0.5:TX[0], tmax=i<P.length-1?P[i+1][0]-0.5:TX[1]; const dmin=i>0?P[i-1][1]:0, dmax=i<P.length-1?P[i+1][1]:100;
+    P[i]=[Math.max(tmin,Math.min(tmax,t)), i===P.length-1?100:Math.max(dmin,Math.min(dmax,d))]; setDirty(true); cv._draw(); };
+  cv.onpointerup=()=>{ if(cvDrag){ cvDrag=null; renderCurves(); } };
+  cv.ondblclick=e=>{ const h=hit(e); if(h.i>=0) return; const t=Math.max(TX[0],Math.min(TX[1],Math.round(h.G.iX(h.x)*2)/2)), d=Math.max(0,Math.min(100,Math.round(h.G.iY(h.y)))); if(c.points.some(p=>p[0]===t)) return; c.points.push([t,d]); c.points.sort((a,b)=>a[0]-b[0]); setDirty(true); renderCurves(); };
+  cv.oncontextmenu=e=>{ const h=hit(e); if(h.i<0) return; e.preventDefault(); if(c.points.length<=2) return; c.points.splice(h.i,1); setDirty(true); renderCurves(); };
+}
+function cvMsg(r){ const P=r.preview?Object.entries(r.preview).map(([z,p])=>'zone '+esc(z)+' → <b>'+esc(p.duty)+' %</b> ('+esc(p.why)+')').join(' · '):'';
+  $('cvmsg').innerHTML=(r.errors||[]).map(x=>'<div class="e">✖ '+esc(x)+'</div>').join('')+(r.warnings||[]).map(x=>'<div class="w">⚠ '+esc(x)+'</div>').join('')+(P?'<div class="p">'+(r.applied?'Applied. ':'')+'With these curves right now: '+P+'</div>':''); }
+function draftOut(){ draft.hysteresis_c=+$('cvh').value; draft.ramp_down_pct_per_min=+$('cvr').value; return draft; }
+async function token(force){ let t=localStorage.getItem('fanctl_token'); if(!t||force){ t=prompt('Edit token (on the box: sudo cat /mnt/apps/fanctl/config/edit_token)'); if(t) localStorage.setItem('fanctl_token',t.trim()); } return t; }
+$('cvh').onchange=$('cvr').onchange=()=>setDirty(true);
+$('cvval').onclick=async()=>{ const r=await (await post('/api/config/validate',{config:draftOut()})).json(); cvMsg(r); };
+$('cvapply').onclick=async()=>{ const v=await (await post('/api/config/validate',{config:draftOut()})).json(); cvMsg(v); if(!v.ok) return;
+  if(!confirm('Apply these fan curves? Right now: '+Object.entries(v.preview).map(([z,p])=>'zone '+z+' '+p.duty+'%').join(', '))) return;
+  const res=await post('/api/config/apply',{config:draft});
+  const r=await res.json(); r.applied=r.ok; cvMsg(r); if(r.ok){ cvDirty=false; await loadCurves(true); cvMsg(r); } };
+$('cvdisc').onclick=()=>{ draft=clone(CV.config); setDirty(false); $('cvmsg').innerHTML=''; renderCurves(); };
+$('cvexp').onclick=()=>{ const b=new Blob([JSON.stringify(CV.config,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='fanctl-config-'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.json'; a.click(); };
+$('cvimpb').onclick=()=>$('cvimp').click();
+$('cvimp').onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ let j=JSON.parse(await f.text()); if(j.config) j=j.config;
+    draft=Object.assign(clone(CV.config),{zones:j.zones,hysteresis_c:j.hysteresis_c??CV.config.hysteresis_c,ramp_down_pct_per_min:j.ramp_down_pct_per_min??CV.config.ramp_down_pct_per_min});
+    setDirty(true); renderCurves(); const r=await (await post('/api/config/validate',{config:draft})).json(); cvMsg(r); $('cvmsg').insertAdjacentHTML('afterbegin','<div>Imported <b>'+esc(f.name)+'</b>: review, then Apply. Nothing changes until you do.</div>');
+  }catch(err){ $('cvmsg').innerHTML='<div class="e">✖ not valid JSON: '+esc(err.message)+'</div>'; } e.target.value=''; };
+$('cvrev').onclick=async()=>{ const b=$('cvbk').value; if(!b) return; const old=await (await fetch('/api/config/backup/'+b)).json(); draft=Object.assign(clone(CV.config),{zones:old.zones,hysteresis_c:old.hysteresis_c,ramp_down_pct_per_min:old.ramp_down_pct_per_min}); setDirty(true); renderCurves(); const r=await (await post('/api/config/validate',{config:draft})).json(); cvMsg(r); $('cvmsg').insertAdjacentHTML('afterbegin','<div>Loaded backup <b>'+esc(b)+'</b> into the editor: Apply to make it live.</div>'); };
+setInterval(()=>{ if(!cvDirty&&!cvDrag) loadCurves(); else if(CV) fetch('/api/config').then(r=>r.json()).then(j=>{ CV.values=j.values; CV.demand=j.demand; if(!cvDrag) drawCurves(); }); },10000);
+
+// ---------------- history
+const PALETTE=['#d64541','#2b7de9','#7a5cc4','#2f9e6e','#b07a1f','#e0629a','#18a6b8','#76b900','#f39c3d','#8e6c4f','#5b8def','#c0392b','#16a085','#9b59b6','#d35400','#7f8c8d'];
+let SEL=JSON.parse(localStorage.getItem('fanctl_series')||'null')||['CPU Temp','P1_DIMMA~D Temp','P1_DIMME~H Temp','hdd_max','nvme_max','hba_max','ses_max','gpu_temp'];
+let ALLSER=null, HSTATS=null;
+async function loadSeries(){ const j=await (await fetch('/api/history/series')).json(); ALLSER=j.series.filter(n=>!/^duty/.test(n)); HSTATS=j.stats;
+  $('hseries').innerHTML=ALLSER.map(n=>'<label><input type="checkbox" value="'+esc(n)+'"'+(SEL.includes(n)?' checked':'')+'> '+esc(n.replace(' Temp',''))+'</label>').join('')+'<span style="color:var(--muted)">DB '+(HSTATS.bytes/1e6).toFixed(1)+' MB · raw '+HSTATS.raw.rows+' · 1-min '+HSTATS.m1.rows+' · 15-min '+HSTATS.m15.rows+' rows</span>';
+  $('hseries').querySelectorAll('input').forEach(i=>i.onchange=()=>{ SEL=[...$('hseries').querySelectorAll('input:checked')].map(x=>x.value); localStorage.setItem('fanctl_series',JSON.stringify(SEL)); drawHist(); }); }
+$('peaks').onchange=()=>drawHist();
+async function drawHist(){
+  const want=[...SEL,'duty0','duty1'];
+  const HR=await (await fetch('/api/history?minutes='+histMin+'&series='+want.map(encodeURIComponent).join(','))).json();
+  const rows=HR.rows||[]; $('hres').textContent=HR.res?('· '+({raw:'10 s samples',m1:'1-min rollups',m15:'15-min rollups'}[HR.res])+(HR.step>({raw:10,m1:60,m15:900}[HR.res])?' averaged per '+(HR.step>=3600?(HR.step/3600)+' h':(HR.step>=60?(HR.step/60)+' min':HR.step+' s')):'')):'';
+  const SERIES=SEL.map((n,i)=>[n,PALETTE[i%PALETTE.length]]);
+  const c=$('hist'), dpr=devicePixelRatio||1, W=c.clientWidth, H=c.clientHeight; c.width=W*dpr; c.height=H*dpr; const g=c.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0);
+  g.clearRect(0,0,W,H); if(rows.length<2){ g.fillStyle=T.muted; g.fillText('collecting history…',10,20); return; }
+  const l=34,r=W-36,t=8,b=H-36, t0=rows[0].t, t1=rows[rows.length-1].t;
+  const X=v=>l+(v-t0)/(t1-t0||1)*(r-l), Yt=v=>b-(v-20)/(95-20)*(b-t), Yd=v=>b-v/100*(b-t);
+  g.strokeStyle=T.grid; g.fillStyle=T.muted; g.font='11px Segoe UI';
+  for(let v=20;v<=90;v+=10){ g.beginPath(); g.moveTo(l,Yt(v)); g.lineTo(r,Yt(v)); g.stroke(); g.fillText(v+'°',4,Yt(v)+4); }
+  for(let v=0;v<=100;v+=25) g.fillText(v+'%',r+6,Yd(v)+4);
+  for(let k=0;k<=4;k++){ const tt=t0+(t1-t0)*k/4, dt=new Date(tt*1000); g.fillText(histMin>2880?dt.toLocaleDateString([], {month:'short',day:'numeric'})+(histMin<=10080?' '+dt.toLocaleTimeString([], {hour:'2-digit'}):''):dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}),X(tt)-14,b+14); }
+  const line=(get,color,yf,dash)=>{ g.beginPath(); g.setLineDash(dash||[]); let first=true; for(const row of rows){ const v=get(row); if(v==null){first=true;continue;} const px=X(row.t),py=yf(v); first?g.moveTo(px,py):g.lineTo(px,py); first=false;} g.strokeStyle=color; g.lineWidth=1.6; g.stroke(); g.setLineDash([]); };
+  line(r=>r.d['0'],T.muted,Yd,[5,3]); line(r=>r.d['1'],'#01a982',Yd,[5,3]);
+  if($('peaks').checked&&(HR.res!=='raw'||HR.step>10)){ g.globalAlpha=0.35; for(const [k,cl] of SERIES) line(r=>r.x&&r.x[k],cl,Yt,[2,2]); g.globalAlpha=1; }
+  for(const [k,cl] of SERIES) line(r=>r.s[k],cl,Yt);
+  let lx=l; g.font='11px Segoe UI';
+  for(const [k,cl] of [...SERIES,['zone 0 duty',T.muted],['zone 1 duty','#01a982']]){ g.fillStyle=cl; g.fillRect(lx,H-12,10,3); g.fillStyle=T.ink; const n=k.replace(' Temp','').replace('P1_',''); g.fillText(n,lx+13,H-8); lx+=g.measureText(n).width+30; }
+}
+document.querySelectorAll('#rng button').forEach(bt=>bt.onclick=()=>{ document.querySelectorAll('#rng button').forEach(x=>x.classList.remove('on')); bt.classList.add('on'); histMin=+bt.dataset.m; drawHist(); });
+
+// ---------------- poll
+async function tick(){
+  try{ const s=await (await fetch('/api/state')).json(); S=s; if(!dirty) layout=s.layout;
+    $('status').textContent=s.failsafe?'FAILSAFE':'OK'; $('status').className='pill'+(s.failsafe?' fs':''); $('dry').style.display=s.dry_run?'':'none';
+    $('chassis').textContent=(layout.chassis||'')+' · '+location.hostname;
+    $('hname').textContent=(layout.name||'NAS')+' · Temperature Information'; document.title=(layout.name||'NAS')+' · Thermal';
+    $('updated').textContent='Updated '+new Date(s.t*1000).toLocaleTimeString();
+    const al=[...(s.failsafe?['FAILSAFE: '+s.failsafe]:[]),...s.alerts]; $('alert').style.display=al.length?'block':'none'; $('alert').textContent=al.join(' · ');
+    renderZones(); renderTable(); renderBays(); renderNvme(); renderPlatform(); if(!drag&&!dragSensor) drawHeat();
+    $('events').textContent=s.events.slice().reverse().map(e=>new Date(e.t*1000).toLocaleString()+'  '+e.msg).join('\n');
+  }catch(e){ $('status').textContent='NO DATA'; $('status').className='pill fs'; }
+}
+function route(){ const p=(location.hash||'#dash').slice(1)==='curves'?'curves':'dash'; document.body.dataset.page=p;
+  document.querySelectorAll('.tabs a').forEach(a=>a.classList.toggle('on',a.dataset.t===p)); requestAnimationFrame(()=>{ if(p==='dash'){ drawHeat(); drawHist(); } else drawCurves(); }); }
+addEventListener('hashchange',route); route();
+addEventListener('beforeunload',e=>{ if(cvDirty){ e.preventDefault(); e.returnValue=''; } });
+tick(); loadSeries().then(drawHist); loadCurves(); setInterval(loadSeries,300000); setInterval(tick,5000); setInterval(drawHist,30000); addEventListener('resize',()=>{drawHeat();drawHist();});
+</script></body></html>
